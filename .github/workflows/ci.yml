@@ -85,7 +85,21 @@ jobs:
           toolchain: "stable"
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
 
+      - name: Check for a published baseline
+        id: baseline
+        run: |
+          http_status=$(curl -s -o /dev/null -w '%{http_code}' \
+            -H "User-Agent: ${GITHUB_REPOSITORY} semver-baseline" \
+            "https://crates.io/api/v1/crates/${GITHUB_REPOSITORY#*/}")
+          if [ "$http_status" = "200" ]; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            echo "no crates.io baseline (HTTP $http_status); semver-checks has nothing to compare against"
+          fi
+
       - name: cargo-semver-checks
+        if: steps.baseline.outputs.published == 'true'
         uses: obi1kenobi/cargo-semver-checks-action@6b69fcf40e9b5fb17adeb57e4b6ecd020649a239 # v2.9
 
   audit:
