@@ -1,22 +1,66 @@
 # betti
 
-Local draft spot. Not a crate yet.
+Persistent homology over GF(2) with a boundary matrix reducer, the
+twist/clearing optimization, and Betti numbers.
 
 Purpose: persistent homology and Betti-number computation: boundary matrix
 reduction, twist/clearing optimization, cohomology variant, and representative
 cycles.
 
-Crates.io exact-name check with `cargo info betti`: no crate found on
-2026-06-26. PyPI and npm also returned 404 for `betti` on the same date.
+```rust
+use betti::{reduction, BoundaryMatrix, Filtration};
 
-First proof: consume a small boundary matrix emitted by `skel`, reduce it, and
-print intervals.
+// The boundary of a triangle: three vertices and three edges, no 2-simplex.
+let mut filtration = Filtration::new();
+for vertex in 0..3 {
+    filtration.insert([vertex], 0.0).unwrap();
+}
+for edge in [[0, 1], [0, 2], [1, 2]] {
+    filtration.insert(edge, 1.0).unwrap();
+}
 
-Current verdict: do not promote yet. `skel` already emits filtration boundary
-matrices, `skel/examples/persistence_reduction.rs` reduces one boundary matrix
-to intervals, and `skel` documents `lophat` / `phlite` as downstream persistent
-homology consumers. A standalone `betti` crate only makes sense if an in-tree
-reducer is needed repeatedly and cannot live as a small `skel` module.
+let matrix = BoundaryMatrix::new(&filtration).unwrap();
+let decomposition = reduction(&matrix);
 
-Extraction rule: start as a tiny reducer around one artifact. Do not build a
-full TDA suite, multiparameter persistence, GPU backend, or Mapper here.
+// One component and one loop.
+assert_eq!(decomposition.betti_numbers(1), vec![1, 1]);
+```
+
+## What it is
+
+- `Simplex`: a sorted `Vec<usize>` of vertex ids with `dim()` and codimension-one
+  face enumeration.
+- `Filtration`: simplices tagged with a filtration value. It rejects a face
+  valued after its coface, a missing face, a duplicate simplex and a `NaN`
+  value as a typed `FiltrationError`, never a panic.
+- `BoundaryMatrix`: the GF(2) boundary columns, ordered by
+  `(filtration value, dimension, vertices)` so every face precedes its coface.
+- `reduction`: standard left-to-right column addition with `low` as the highest
+  set row. It returns a `Decomposition` of `(Birth, Death)` pairs, where an
+  essential class has `Death = None`, plus `betti_numbers(max_dim)`.
+- `ReductionOptions::clear`: the clearing (twist) optimization. It skips
+  columns whose classes are already paired and must return exactly the same
+  pairs and Betti numbers as the plain reduction.
+
+## Boundary
+
+This is a reducer, not a TDA suite. Version 0.1.0 implements homology reduction
+only; the cohomology variant and representative cycle extraction named in the
+purpose above are not implemented yet. There is no multiparameter persistence,
+no Mapper, no GPU backend, and no simplex generation from point clouds: build
+the filtration yourself, or feed one in from a tool such as `skel`.
+
+Filtration values are `f64`; `NaN` is rejected because it has no order and
+would make the column order ambiguous.
+
+## Testing
+
+`just check` runs formatting, Clippy with `-D warnings`, the test suite and
+docs. The tests are hand-checkable: a single vertex, two disconnected edges, a
+triangle boundary, a filled triangle, and the tetrahedron boundary as a sphere,
+plus a check that clearing returns the same pairs as the plain reduction and
+that a face valued after its coface yields `FiltrationError::FaceAfterCoface`.
+
+## License
+
+MIT OR Apache-2.0.

@@ -1,0 +1,20 @@
+[package]
+name = "betti"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "Persistent homology over GF(2): boundary matrix reduction, clearing, Betti numbers"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/arclabs561/betti"
+homepage = "https://docs.rs/betti"
+documentation = "https://docs.rs/betti"
+readme = "README.md"
+keywords = ["persistent-homology", "topology", "betti", "gf2", "filtration"]
+categories = ["science", "algorithms"]
+include = ["/src", "/README.md", "/CHANGELOG.md", "/LICENSE*"]
+
+[workspace]
+
+[dependencies]
+
+[dev-dependencies]
