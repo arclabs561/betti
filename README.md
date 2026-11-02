@@ -3,9 +3,11 @@
 Persistent homology over GF(2) with a boundary matrix reducer, the
 twist/clearing optimization, and Betti numbers.
 
-Purpose: persistent homology and Betti-number computation: boundary matrix
-reduction, twist/clearing optimization, cohomology variant, and representative
-cycles.
+## Install
+
+```toml
+betti = "0.1"
+```
 
 ```rust
 use betti::{reduction, BoundaryMatrix, Filtration};
@@ -41,6 +43,12 @@ assert_eq!(decomposition.betti_numbers(1), vec![1, 1]);
 - `ReductionOptions::clear`: the clearing (twist) optimization. It skips
   columns whose classes are already paired and must return exactly the same
   pairs and Betti numbers as the plain reduction.
+- `H0Filtration`: a one-dimensional filtration (vertices with birth times,
+  edges with death times) that returns its dimension-zero pairs by
+  filtration-aware union-find, without a boundary matrix.
+  `H0Decomposition::count_components_above(threshold)` is the component count
+  a merge tree or `ToMATo` significance curve needs. It agrees pair for pair
+  with the matrix reducer on the same filtration.
 
 ## Boundary
 
@@ -56,10 +64,21 @@ would make the column order ambiguous.
 ## Testing
 
 `just check` runs formatting, Clippy with `-D warnings`, the test suite and
-docs. The tests are hand-checkable: a single vertex, two disconnected edges, a
+docs. The hand-checkable cases are a single vertex, two disconnected edges, a
 triangle boundary, a filled triangle, and the tetrahedron boundary as a sphere,
-plus a check that clearing returns the same pairs as the plain reduction and
+plus checks that clearing returns the same pairs as the plain reduction and
 that a face valued after its coface yields `FiltrationError::FaceAfterCoface`.
+
+Two differential suites back the claims:
+
+- `tests/differential_lophat.rs` reduces 200 random complexes (3-10 vertices,
+  random edges and triangles, quarter-grid values so ties are common) with
+  `betti` and with `lophat`, under both clearing settings, and compares the
+  pairings as a multiset. Seeds are a small built-in xorshift; a failure prints
+  the seed and a greedily shrunk counterexample.
+- `tests/h0_matrix_agreement.rs` compares the union-find `H0` pairs and
+  component counts against the matrix reducer on 300 random one-dimensional
+  filtrations.
 
 ## License
 
