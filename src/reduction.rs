@@ -148,11 +148,12 @@ pub fn reduction(matrix: &BoundaryMatrix) -> Decomposition {
 pub fn reduction_with(matrix: &BoundaryMatrix, options: ReductionOptions) -> Decomposition {
     let n = matrix.len();
     let dims: Vec<usize> = matrix.simplices().iter().map(Simplex::dim).collect();
-    let mut columns: Vec<BitSet> = matrix
+    let mut columns: Vec<Column> = matrix
         .columns()
         .iter()
-        .map(|column| BitSet::from_indices(column, n))
+        .map(|rows| Column::from_sorted(rows.clone()))
         .collect();
+    let mut scratch: Vec<usize> = Vec::new();
 
     // owner[low] is the column whose reduced pivot is `low`.
     let mut owner: Vec<Option<usize>> = vec![None; n];
@@ -172,7 +173,7 @@ pub fn reduction_with(matrix: &BoundaryMatrix, options: ReductionOptions) -> Dec
             }
             while let Some(low) = columns[column].highest() {
                 match owner[low] {
-                    Some(partner) => add_into(&mut columns, column, partner),
+                    Some(partner) => add_into(&mut columns, column, partner, &mut scratch),
                     None => {
                         owner[low] = Some(column);
                         paired[low] = true;
@@ -202,59 +203,70 @@ pub fn reduction_with(matrix: &BoundaryMatrix, options: ReductionOptions) -> Dec
 }
 
 /// XOR column `source` into column `target` without cloning either.
-fn add_into(columns: &mut [BitSet], target: usize, source: usize) {
+fn add_into(columns: &mut [Column], target: usize, source: usize, scratch: &mut Vec<usize>) {
     debug_assert_ne!(target, source, "a column cannot be added to itself");
     if target > source {
         let (head, tail) = columns.split_at_mut(target);
-        tail[0].xor_assign(&head[source]);
+        tail[0].xor_assign(&head[source], scratch);
     } else {
         let (head, tail) = columns.split_at_mut(source);
-        head[target].xor_assign(&tail[0]);
+        head[target].xor_assign(&tail[0], scratch);
     }
 }
 
-/// A fixed-width set of row indices, one bit per column of the matrix.
+/// The set rows of one column, sorted ascending.
+///
+/// Sparse rather than a dense bitset: a boundary column starts with `dim + 1`
+/// entries and stays short during reduction, so adding two columns costs the
+/// length of the two lists instead of `n / 64` words, and memory is linear in
+/// the entries rather than `n^2 / 8` bytes.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-struct BitSet {
-    words: Vec<u64>,
+struct Column {
+    rows: Vec<usize>,
 }
 
-impl BitSet {
-    fn new(bits: usize) -> Self {
-        Self {
-            words: vec![0; bits.div_ceil(64)],
-        }
+impl Column {
+    fn from_sorted(rows: Vec<usize>) -> Self {
+        debug_assert!(
+            rows.windows(2).all(|w| w[0] < w[1]),
+            "rows must be strictly ascending"
+        );
+        Self { rows }
     }
 
-    fn from_indices(indices: &[usize], bits: usize) -> Self {
-        let mut set = Self::new(bits);
-        for &index in indices {
-            set.insert(index);
+    /// Symmetric difference with `other`, merged through `scratch` so the
+    /// result reuses an allocation instead of making a new one per addition.
+    fn xor_assign(&mut self, other: &Self, scratch: &mut Vec<usize>) {
+        scratch.clear();
+        let (a, b) = (&self.rows, &other.rows);
+        let (mut i, mut j) = (0, 0);
+        while i < a.len() && j < b.len() {
+            match a[i].cmp(&b[j]) {
+                std::cmp::Ordering::Less => {
+                    scratch.push(a[i]);
+                    i += 1;
+                }
+                std::cmp::Ordering::Greater => {
+                    scratch.push(b[j]);
+                    j += 1;
+                }
+                std::cmp::Ordering::Equal => {
+                    i += 1;
+                    j += 1;
+                }
+            }
         }
-        set
-    }
-
-    fn insert(&mut self, index: usize) {
-        self.words[index / 64] |= 1 << (index % 64);
-    }
-
-    fn xor_assign(&mut self, other: &Self) {
-        for (word, mask) in self.words.iter_mut().zip(&other.words) {
-            *word ^= mask;
-        }
+        scratch.extend_from_slice(&a[i..]);
+        scratch.extend_from_slice(&b[j..]);
+        std::mem::swap(&mut self.rows, scratch);
     }
 
     fn highest(&self) -> Option<usize> {
-        for (index, word) in self.words.iter().enumerate().rev() {
-            if *word != 0 {
-                return Some(index * 64 + (63 - word.leading_zeros() as usize));
-            }
-        }
-        None
+        self.rows.last().copied()
     }
 
     fn is_empty(&self) -> bool {
-        self.words.iter().all(|word| *word == 0)
+        self.rows.is_empty()
     }
 }
 
@@ -263,24 +275,29 @@ mod tests {
     use super::*;
 
     #[test]
-    fn bitset_pivots_and_xor() {
-        let mut left = BitSet::from_indices(&[0, 3], 4);
-        let right = BitSet::from_indices(&[3], 4);
+    fn column_pivots_and_xor() {
+        let mut scratch = Vec::new();
+        let mut left = Column::from_sorted(vec![0, 3]);
+        let right = Column::from_sorted(vec![3]);
         assert_eq!(left.highest(), Some(3));
         assert!(!left.is_empty());
-        left.xor_assign(&right);
+        left.xor_assign(&right, &mut scratch);
         assert_eq!(left.highest(), Some(0));
-        left.xor_assign(&BitSet::from_indices(&[0], 4));
+        left.xor_assign(&Column::from_sorted(vec![0]), &mut scratch);
         assert!(left.is_empty());
         assert_eq!(left.highest(), None);
     }
 
     #[test]
-    fn bitset_spans_several_words() {
-        let mut set = BitSet::from_indices(&[0, 64, 130], 131);
-        assert_eq!(set.highest(), Some(130));
-        set.xor_assign(&BitSet::from_indices(&[130], 131));
-        assert_eq!(set.highest(), Some(64));
+    fn column_xor_is_a_sorted_symmetric_difference() {
+        let mut scratch = Vec::new();
+        let mut set = Column::from_sorted(vec![0, 64, 130, 200]);
+        set.xor_assign(
+            &Column::from_sorted(vec![1, 64, 199, 200, 300]),
+            &mut scratch,
+        );
+        assert_eq!(set.rows, vec![0, 1, 130, 199, 300]);
+        assert_eq!(set.highest(), Some(300));
     }
 
     #[test]
