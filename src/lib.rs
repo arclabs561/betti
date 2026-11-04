@@ -40,17 +40,39 @@
 //!   of the plain reduction.
 //! - The cohomology variant and representative cycles are not implemented yet;
 //!   only the homology reduction is.
+//!
+//! # Cluster counts
+//!
+//! When only connected components matter, [`H0Filtration`] returns the
+//! dimension-zero pairs by union-find and skips the matrix entirely:
+//!
+//! ```
+//! use betti::H0Filtration;
+//!
+//! let mut filtration = H0Filtration::new();
+//! for _ in 0..3 {
+//!     filtration.add_vertex(0.0)?;
+//! }
+//! filtration.add_edge(0, 1, 1.0)?;
+//!
+//! let components = filtration.decompose();
+//! assert_eq!(components.count_components_above(2.0), 2);
+//! assert_eq!(components.count_components_above(0.5), 3);
+//! # Ok::<(), betti::H0Error>(())
+//! ```
 
 #![warn(missing_docs)]
 #![warn(clippy::doc_markdown)]
 
 mod boundary;
 mod filtration;
+mod h0;
 mod reduction;
 mod simplex;
 
 pub use boundary::BoundaryMatrix;
 pub use filtration::{Filtration, FiltrationError};
+pub use h0::{H0Decomposition, H0Error, H0Filtration, H0Pair};
 pub use reduction::{
     reduction, reduction_with, Birth, Death, Decomposition, Pair, ReductionOptions,
 };
