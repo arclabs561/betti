@@ -13,8 +13,10 @@ path below.
 
 - `H0Filtration` and `H0Decomposition`: dimension-zero persistence by
   filtration-aware union-find over vertices with birth times and edges with
-  death times, with `count_components_above(threshold)` for a merge-tree or
-  `ToMATo` component count. The pairs agree with the matrix reducer on the same
+  death times. `count_components_above(level)` counts the components alive at
+  one filtration value; `count_persistent(min_persistence)` counts the classes
+  that persist at least that long, the cluster count `ToMATo` takes for a
+  prominence threshold. The pairs agree with the matrix reducer on the same
   filtration.
 - Differential test suite against `lophat` 0.14 (dev-dependency only): 200
   random complexes, both clearing settings, compared as a multiset of

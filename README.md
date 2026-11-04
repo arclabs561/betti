@@ -46,9 +46,11 @@ assert_eq!(decomposition.betti_numbers(1), vec![1, 1]);
 - `H0Filtration`: a one-dimensional filtration (vertices with birth times,
   edges with death times) that returns its dimension-zero pairs by
   filtration-aware union-find, without a boundary matrix.
-  `H0Decomposition::count_components_above(threshold)` is the component count
-  a merge tree or `ToMATo` significance curve needs. It agrees pair for pair
-  with the matrix reducer on the same filtration.
+  It agrees pair for pair with the matrix reducer on the same filtration.
+  `H0Decomposition::count_components_above(level)` counts the components alive
+  at one filtration value; `count_persistent(min_persistence)` counts the
+  classes that persist at least that long (essential classes included), which
+  is the cluster count `ToMATo` takes for a prominence threshold.
 
 ## Boundary
 
