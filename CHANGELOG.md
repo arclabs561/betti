@@ -19,6 +19,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `count_persistent(min_persistence)`. A `NaN` threshold is
   `H0Error::InvalidValue`.
 
+### Changed
+
+- The reducer stores each column as a sorted list of row indices instead of
+  a dense bitset over every column, so a column addition costs the two
+  columns' lengths rather than `n / 64` words and memory is linear in the
+  entries rather than `n^2 / 8` bytes. Pairs are unchanged. On Rips
+  2-skeletons with clearing it is 3.8x faster at 15k columns and 9-11x at
+  36k-45k.
+
 ## [0.1.1] - 2026-11-04
 
 ### Added
