@@ -30,6 +30,7 @@
 //! assert_eq!(components.count_components_above(2.0), 2);
 //! ```
 
+use std::collections::HashSet;
 use std::fmt;
 
 /// One dimension-zero class: a component born at a vertex and, when an older
@@ -83,6 +84,9 @@ impl H0Pair {
 pub struct H0Filtration {
     vertices: Vec<f64>,
     edges: Vec<(usize, usize, f64)>,
+    // Sorted endpoint pairs already in `edges`, so a duplicate is found in
+    // constant time instead of by scanning every earlier edge.
+    seen: HashSet<(usize, usize)>,
 }
 
 /// Why a one-dimensional filtration cannot be built.
@@ -185,7 +189,7 @@ impl H0Filtration {
         if left == right {
             return Err(H0Error::SelfLoop { vertex: left });
         }
-        if self.edges.iter().any(|&(a, b, _)| (a, b) == edge) {
+        if self.seen.contains(&edge) {
             return Err(H0Error::DuplicateEdge { edge });
         }
         for vertex in [left, right] {
@@ -199,6 +203,7 @@ impl H0Filtration {
             }
         }
         self.edges.push((edge.0, edge.1, death));
+        self.seen.insert(edge);
         Ok(())
     }
 
