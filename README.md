@@ -75,7 +75,7 @@ triangle boundary, a filled triangle, and the tetrahedron boundary as a sphere,
 plus checks that clearing returns the same pairs as the plain reduction and
 that a face valued after its coface yields `FiltrationError::FaceAfterCoface`.
 
-Two differential suites back the claims:
+Three suites back the claims:
 
 - `tests/differential_lophat.rs` reduces 200 random complexes (3-10 vertices,
   random edges and triangles, quarter-grid values so ties are common) with
