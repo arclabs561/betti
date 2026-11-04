@@ -6,6 +6,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+### Added
+
+- Criterion benchmark (`benches/reduction.rs`) of the reduction and the `H0`
+  union-find against `lophat` on the same boundary matrix.
+
 ## [0.1.1] - 2026-11-04
 
 ### Added

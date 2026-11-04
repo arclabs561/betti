@@ -82,6 +82,10 @@ Two differential suites back the claims:
   component counts against the matrix reducer on 300 random one-dimensional
   filtrations.
 
+`benches/reduction.rs` (`cargo bench`) times the reduction against `lophat` on
+the same boundary matrix, for seeded Vietoris-Rips 2-skeletons of 50, 200 and
+1000 points in the unit square and cube.
+
 ## License
 
 MIT OR Apache-2.0.

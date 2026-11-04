@@ -21,3 +21,10 @@ include = ["/src", "/README.md", "/CHANGELOG.md", "/LICENSE*"]
 # Differential oracle for the persistence pairs; tests only. Default features
 # are off so the Python bindings, serde and local thread pool are not built.
 lophat = { version = "0.14", default-features = false }
+# Benchmarks only. 0.5 is the newest line whose rust-version fits the MSRV;
+# plotting and rayon are off to keep the dev tree small.
+criterion = { version = "0.5", default-features = false }
+
+[[bench]]
+name = "reduction"
+harness = false

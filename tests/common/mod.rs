@@ -1,4 +1,5 @@
-//! Shared test support: a deterministic PRNG and random filtrations.
+//! Shared test support: a deterministic PRNG, random filtrations, and a
+//! Vietoris-Rips builder.
 //!
 //! Each integration test binary loads this module on its own and uses a
 //! different subset, so unused helpers are expected.
@@ -111,6 +112,50 @@ impl Complex {
 /// Whether every vertex of `face` also belongs to `coface`.
 pub fn is_face(face: &[usize], coface: &[usize]) -> bool {
     face.len() <= coface.len() && face.iter().all(|vertex| coface.contains(vertex))
+}
+
+/// The Euclidean distance between two points of equal dimension.
+pub fn distance(left: &[f64], right: &[f64]) -> f64 {
+    left.iter()
+        .zip(right)
+        .map(|(a, b)| (a - b) * (a - b))
+        .sum::<f64>()
+        .sqrt()
+}
+
+/// The Vietoris-Rips complex of a point cloud, truncated at `radius`.
+///
+/// Vertices enter at 0, an edge at its length when that is at most `radius`,
+/// and, when `triangles` is set, each triangle whose three edges are present
+/// at its longest edge. This is the convention GUDHI's `RipsComplex` and
+/// Ripser use, so their diagrams are directly comparable.
+pub fn rips(points: &[Vec<f64>], radius: f64, triangles: bool) -> Complex {
+    let count = points.len();
+    let mut length = vec![vec![None; count]; count];
+    let mut simplices: Vec<(Vec<usize>, f64)> = (0..count).map(|v| (vec![v], 0.0)).collect();
+    let mut edges = Vec::new();
+    for i in 0..count {
+        for j in (i + 1)..count {
+            let d = distance(&points[i], &points[j]);
+            if d <= radius {
+                length[i][j] = Some(d);
+                length[j][i] = Some(d);
+                edges.push((i, j, d));
+                simplices.push((vec![i, j], d));
+            }
+        }
+    }
+    if triangles {
+        for &(i, j, ij) in &edges {
+            let pairs = length[i].iter().zip(&length[j]).enumerate();
+            for (k, (ik, jk)) in pairs.skip(j + 1) {
+                if let (Some(ik), Some(jk)) = (ik, jk) {
+                    simplices.push((vec![i, j, k], ij.max(*ik).max(*jk)));
+                }
+            }
+        }
+    }
+    Complex { simplices }
 }
 
 /// A random one-dimensional filtration: `3..=10` vertices and a random edge
