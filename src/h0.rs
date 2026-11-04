@@ -9,9 +9,12 @@
 //! `O(n log n)` time instead of matrix reduction.
 //!
 //! This is the path for a cluster count, where only connected components
-//! matter and a matrix reducer is wasted work: a merge tree or `ToMATo`
-//! significance curve needs the component count over a density threshold, not
-//! the higher homology.
+//! matter and a matrix reducer is wasted work. Two counts are available:
+//! [`H0Decomposition::count_components_above`] gives the components alive at
+//! one filtration value (a level set of the merge tree), and
+//! [`H0Decomposition::count_persistent`] gives the classes that persist at
+//! least a threshold, which is the count `ToMATo` uses for a prominence
+//! threshold.
 //!
 //! ```
 //! use betti::H0Filtration;
@@ -334,6 +337,42 @@ impl H0Decomposition {
             .count()
     }
 
+    /// The number of classes whose persistence is at least `min_persistence`,
+    /// counting essential classes as infinitely persistent.
+    ///
+    /// This is the cluster count `ToMATo` reads off for a prominence threshold:
+    /// a mode counts when it survives at least `min_persistence` before
+    /// merging into an older one. It differs from
+    /// [`Self::count_components_above`], which counts the components alive at
+    /// one filtration value regardless of how long they live. For a superlevel
+    /// density filtration, negate the densities so births precede deaths. A
+    /// `NaN` threshold matches nothing and returns 0.
+    ///
+    /// ```
+    /// use betti::H0Filtration;
+    ///
+    /// let mut filtration = H0Filtration::new();
+    /// let old = filtration.add_vertex(0.0).unwrap();
+    /// let young = filtration.add_vertex(5.0).unwrap();
+    /// filtration.add_edge(old, young, 5.5).unwrap();
+    /// let components = filtration.decompose();
+    /// // Both components are alive at 5.2, but the young one lives only 0.5.
+    /// assert_eq!(components.count_components_above(5.2), 2);
+    /// assert_eq!(components.count_persistent(1.0), 1);
+    /// ```
+    pub fn count_persistent(&self, min_persistence: f64) -> usize {
+        if min_persistence.is_nan() {
+            return 0;
+        }
+        self.pairs
+            .iter()
+            .filter(|pair| {
+                pair.persistence()
+                    .is_none_or(|persistence| persistence >= min_persistence)
+            })
+            .count()
+    }
+
     /// The number of classes, finite and essential.
     pub fn len(&self) -> usize {
         self.pairs.len()
@@ -567,5 +606,37 @@ mod tests {
         assert!(filtration.add_edge(0, 1, 1.0).is_err());
         // One edge merges the two components once, as in a simplicial complex.
         assert_eq!(filtration.decompose().essential().count(), 1);
+    }
+
+    #[test]
+    fn persistent_count_uses_lifetimes_not_a_level() {
+        // Four vertices born at 0; edges kill one class at 1 and one at 2.
+        let mut filtration = H0Filtration::new();
+        for _ in 0..4 {
+            filtration.add_vertex(0.0).unwrap();
+        }
+        filtration.add_edge(0, 1, 1.0).unwrap();
+        filtration.add_edge(2, 3, 2.0).unwrap();
+        let decomposition = filtration.decompose();
+        // Persistences are 1 and 2, plus two essential classes.
+        assert_eq!(decomposition.count_persistent(0.0), 4);
+        assert_eq!(decomposition.count_persistent(1.0), 4);
+        assert_eq!(decomposition.count_persistent(1.5), 3);
+        assert_eq!(decomposition.count_persistent(2.0), 3);
+        assert_eq!(decomposition.count_persistent(2.5), 2);
+        assert_eq!(decomposition.count_persistent(f64::INFINITY), 2);
+        assert_eq!(decomposition.count_persistent(f64::NAN), 0);
+    }
+
+    #[test]
+    fn persistent_and_level_counts_differ_for_late_births() {
+        let mut filtration = H0Filtration::new();
+        filtration.add_vertex(0.0).unwrap();
+        filtration.add_vertex(5.0).unwrap();
+        filtration.add_edge(0, 1, 5.5).unwrap();
+        let decomposition = filtration.decompose();
+        assert_eq!(decomposition.count_components_above(5.2), 2);
+        assert_eq!(decomposition.count_persistent(1.0), 1);
+        assert_eq!(decomposition.count_persistent(0.5), 2);
     }
 }
