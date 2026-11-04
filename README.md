@@ -51,6 +51,10 @@ assert_eq!(decomposition.betti_numbers(1), vec![1, 1]);
   at one filtration value; `count_persistent(min_persistence)` counts the
   classes that persist at least that long (essential classes included), which
   is the cluster count `ToMATo` takes for a prominence threshold.
+  `cluster_labels(min_persistence)` returns a label per vertex with exactly
+  that many clusters: each class below the threshold merges into the
+  component it met when it died. For density clustering, build the
+  filtration from negated densities.
 
 ## Boundary
 
@@ -71,7 +75,7 @@ triangle boundary, a filled triangle, and the tetrahedron boundary as a sphere,
 plus checks that clearing returns the same pairs as the plain reduction and
 that a face valued after its coface yields `FiltrationError::FaceAfterCoface`.
 
-Two differential suites back the claims:
+Three suites back the claims:
 
 - `tests/differential_lophat.rs` reduces 200 random complexes (3-10 vertices,
   random edges and triangles, quarter-grid values so ties are common) with
@@ -81,6 +85,15 @@ Two differential suites back the claims:
 - `tests/h0_matrix_agreement.rs` compares the union-find `H0` pairs and
   component counts against the matrix reducer on 300 random one-dimensional
   filtrations.
+- `tests/oracle_gudhi.rs` checks the H0 and H1 Vietoris-Rips diagrams of five
+  small point clouds against GUDHI (cross-checked against Ripser when the
+  fixtures were made), pair for pair within an absolute tolerance of 1e-9.
+  `scripts/oracle_fixtures.py` regenerates `tests/fixtures/oracle/`:
+  `uv run --no-project scripts/oracle_fixtures.py tests/fixtures/oracle`.
+
+`benches/reduction.rs` (`cargo bench`) times the reduction against `lophat` on
+the same boundary matrix, for seeded Vietoris-Rips 2-skeletons of 50, 200 and
+1000 points in the unit square and cube.
 
 ## License
 
