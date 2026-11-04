@@ -10,6 +10,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Criterion benchmark (`benches/reduction.rs`) of the reduction and the `H0`
   union-find against `lophat` on the same boundary matrix.
+- External-oracle tests: Vietoris-Rips H0 and H1 diagrams of five fixed
+  point clouds compared with GUDHI 3.13.0 output, with the generator script
+  in `scripts/oracle_fixtures.py`.
 
 ## [0.1.1] - 2026-11-04
 

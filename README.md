@@ -81,6 +81,11 @@ Two differential suites back the claims:
 - `tests/h0_matrix_agreement.rs` compares the union-find `H0` pairs and
   component counts against the matrix reducer on 300 random one-dimensional
   filtrations.
+- `tests/oracle_gudhi.rs` checks the H0 and H1 Vietoris-Rips diagrams of five
+  small point clouds against GUDHI (cross-checked against Ripser when the
+  fixtures were made), pair for pair within an absolute tolerance of 1e-9.
+  `scripts/oracle_fixtures.py` regenerates `tests/fixtures/oracle/`:
+  `uv run --no-project scripts/oracle_fixtures.py tests/fixtures/oracle`.
 
 `benches/reduction.rs` (`cargo bench`) times the reduction against `lophat` on
 the same boundary matrix, for seeded Vietoris-Rips 2-skeletons of 50, 200 and
