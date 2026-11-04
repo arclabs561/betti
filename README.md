@@ -6,7 +6,7 @@ twist/clearing optimization, and Betti numbers.
 ## Install
 
 ```toml
-betti = "0.1"
+betti = "0.1.1"
 ```
 
 ```rust

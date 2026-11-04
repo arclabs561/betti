@@ -6,8 +6,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
-Needs a 0.1.1 release: `0.1.0` is published and does not contain the `H0`
-path below.
+## [0.1.1] - 2026-11-04
 
 ### Added
 
