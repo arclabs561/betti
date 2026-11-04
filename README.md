@@ -51,6 +51,10 @@ assert_eq!(decomposition.betti_numbers(1), vec![1, 1]);
   at one filtration value; `count_persistent(min_persistence)` counts the
   classes that persist at least that long (essential classes included), which
   is the cluster count `ToMATo` takes for a prominence threshold.
+  `cluster_labels(min_persistence)` returns a label per vertex with exactly
+  that many clusters: each class below the threshold merges into the
+  component it met when it died. For density clustering, build the
+  filtration from negated densities.
 
 ## Boundary
 

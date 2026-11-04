@@ -373,6 +373,89 @@ impl H0Decomposition {
             .count()
     }
 
+    /// A cluster label for every vertex at a persistence threshold, the
+    /// `ToMATo` merge rule applied to the merge tree.
+    ///
+    /// A class whose persistence is below `min_persistence` merges, at its
+    /// death edge, into the component it met there; a class that persists at
+    /// least `min_persistence`, or never dies, stays a cluster of its own. The
+    /// labels are the connected components of the death edges of the merged
+    /// classes, so there are exactly [`Self::count_persistent`] distinct labels.
+    /// They are dense, `0..count_persistent(min_persistence)`, and numbered in
+    /// the birth order of each cluster's surviving class, so label 0 is the
+    /// oldest class.
+    ///
+    /// The result is indexed by vertex id. For a density, build the
+    /// filtration from negated densities, as for [`Self::count_persistent`]:
+    /// a vertex is born at `-density` and an edge enters at the larger of its
+    /// endpoints' negated densities, so each cluster is a density mode and the
+    /// threshold is a prominence. There is no separate superlevel input.
+    ///
+    /// A `NaN` threshold matches no class, which [`Self::count_persistent`]
+    /// reports as zero clusters; since no labelling has zero clusters unless
+    /// there are no vertices, it is a [`H0Error::InvalidValue`] here.
+    ///
+    /// ```
+    /// use betti::H0Filtration;
+    ///
+    /// // Densities along a path with peaks at vertices 1 and 3 and a valley
+    /// // at vertex 2.
+    /// let density = [0.5, 1.0, 0.25, 0.75, 0.25];
+    /// let mut filtration = H0Filtration::new();
+    /// for value in density {
+    ///     filtration.add_vertex(-value)?;
+    /// }
+    /// for v in 0..4 {
+    ///     filtration.add_edge(v, v + 1, -density[v].min(density[v + 1]))?;
+    /// }
+    /// let components = filtration.decompose();
+    ///
+    /// // The smaller peak rises 0.5 above the valley.
+    /// assert_eq!(components.cluster_labels(0.4)?, vec![0, 0, 0, 1, 1]);
+    /// assert_eq!(components.cluster_labels(0.6)?, vec![0; 5]);
+    /// # Ok::<(), betti::H0Error>(())
+    /// ```
+    pub fn cluster_labels(&self, min_persistence: f64) -> Result<Vec<usize>, H0Error> {
+        if min_persistence.is_nan() {
+            return Err(H0Error::InvalidValue {
+                value: min_persistence,
+            });
+        }
+        let persists = |pair: &H0Pair| {
+            pair.persistence()
+                .is_none_or(|persistence| persistence >= min_persistence)
+        };
+
+        // One pair per vertex, so vertex ids are 0..len.
+        let mut forest = Forest::new(self.pairs.len());
+        for pair in &self.pairs {
+            if persists(pair) {
+                continue;
+            }
+            if let Some((left, right)) = pair.death_edge {
+                let left = forest.find(left);
+                let right = forest.find(right);
+                forest.merge(left, right);
+            }
+        }
+
+        // A class outlives every younger class it absorbed, and was born no
+        // later, so it persists at least as long as each of them: a merged
+        // class absorbed only merged classes, and each component holds
+        // exactly one surviving class.
+        let mut root_label = vec![None; self.pairs.len()];
+        for (label, pair) in self.pairs.iter().filter(|pair| persists(pair)).enumerate() {
+            let root = forest.find(pair.birth_vertex);
+            debug_assert!(root_label[root].is_none(), "two clusters share a root");
+            root_label[root] = Some(label);
+        }
+        Ok((0..self.pairs.len())
+            .map(|vertex| {
+                root_label[forest.find(vertex)].expect("every component holds a surviving class")
+            })
+            .collect())
+    }
+
     /// The number of classes, finite and essential.
     pub fn len(&self) -> usize {
         self.pairs.len()
